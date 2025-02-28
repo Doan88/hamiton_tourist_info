@@ -1,0 +1,572 @@
+<!--StAuth10244: I Thanh Truong Doan, 000918024 certify that this material is my original work. No other person's work has been used without due acknowledgement. I have not made my work available to anyone else.-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment 2</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      /* For mobile view */
+      @media (max-width: 576px) {
+          #map {
+              height: 300px;
+          }
+      }
+
+      /* For tablet view */
+      @media (min-width: 576px) and (max-width: 768px) {
+          #map {
+              height: 500px;
+          }
+      }
+
+      /* For desktop view */
+      @media (min-width: 768px) {
+          #map {
+              height: 700px;
+          }
+      }
+
+      /* Make labels bold */
+      .form-label {
+          font-weight: bold;
+      }
+
+      /* Add pink border on hover for buttons */
+      .btn:hover {
+          background-color: pink;
+          color: black;
+          border: 2px solid black;
+      }
+    </style>
+
+</head>
+<body class="container">
+
+  <h1 class="text-center text-success fw-bold bg-warning rounded p-3 w-100">Hamilton Tourist Information</h1>
+  
+  <div id="map" class="mb-4"></div>
+
+  <div>
+    <br/>
+    <button class="btn btn-success" id="waterfalls">Waterfalls</button>
+    <button class="btn btn-info" id="parks">Parks</button>
+    <button class="btn btn-warning" id="museum_and_galleries">Museum & Galleries</button>
+    <button class="btn btn-danger" id="worship_places">Worship Places</button>
+    <button class="btn btn-primary" id="hospitals">Hospitals</button>
+    <br/>
+  </div>
+
+  <div>
+    <br/>
+    <button class="btn btn-secondary" id="geolocate">Geolocate</button>
+  </div>
+
+  <div>
+    <br/>
+    <h6>New Marker Input Form</h6>
+    <form id="markerForm">
+      <div class="mb-3">
+        <label for="address" class="form-label">Address:</label>
+        <input type="text" id="address" name="address" class="form-control" size="100" placeholder="123 Main St, Hamilton, Ontario" required>
+      </div>
+
+      <div class="mb-3"></div>
+        <label for="category" class="form-label">Category:</label>
+        <select id="category" name="category" class="form-select">
+          <option value="Restaurant">Restaurant</option>
+          <option value="Hotel">Hotel</option>
+          <option value="Bank">Bank</option>
+          <option value="Supermarket">Supermarket</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label for="parking" class="form-label">Parking:</label>
+        <select id="parking" name="parking" class="form-select">
+          <option value="Street Parking">Street Parking</option>
+          <option value="Parking Lot">Parking Lot</option>
+          <option value="No Parking">No Parking</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label for="accessibility" class="form-label">Accessibility:</label>
+        <select id="accessibility" name="accessibility" class="form-select">
+          <option value="Wheel Chair">Wheel Chair</option>
+          <option value="Elevator">Elevator</option>
+          <option value="Automatic Door">Automatic Door</option>
+        </select>
+      </div>
+
+      <button id="addNewMarker" type="submit" class="btn btn-secondary">Add New Marker</button>
+    </form>
+  </div>
+
+    <script async
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAOV4Jscr7MVHB3AxB2c9ghZF13lMTikSg&loading=async&callback=initMap&libraries=marker">
+    </script>
+
+    <script src="hospitals.js"></script>
+    <script src="parks.js"></script>
+    <script src="waterfalls.js"></script>
+    <script src="worship_places.js"></script>
+    <script src="museum_and_galleries.js"></script>
+
+    <script>
+
+        let map;
+        let markers = [];
+        let currentInfoWindow = null;
+        let geocoder;
+        let userLocation;
+        let directionsService;
+        let directionsRenderer;
+
+        /**
+         * Initializes the Google Map with default settings.
+         * Centers the map on Hamilton, Ontario.
+         * Sets up required services like Geocoder and Directions API.
+         * Calls the function to add default markers.
+         */
+        function initMap()
+        {
+            map = new google.maps.Map(document.getElementById("map"), 
+                {
+                    center: {lat: 43.2387, lng: -79.881}, // Centered on Hamilton, Ontario
+                    zoom: 12,
+                    mapId: "e410d485230dbcf6"
+                });
+
+            defaultTenMarkers(); // Load default markers
+
+            geocoder = new google.maps.Geocoder();
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+
+            directionsRenderer.setMap(map);
+        }
+        
+        /**
+         * Adds the default 10 waterfall markers to the map.
+         * Each marker includes an info window with additional details.
+         */
+        function defaultTenMarkers() 
+        {
+          for (let i=0; i< 10; i++)
+            {
+                let marker = new google.maps.marker.AdvancedMarkerElement({
+                    map: map,
+                    position: { lat: waterfalls.features[i].geometry.coordinates[1], lng: waterfalls.features[i].geometry.coordinates[0] },         
+                    title: waterfalls.features[i].properties.NAME            
+                });
+                markers.push(marker);
+
+                // Create an info window with additional information
+                let contentString = "<h6>" + waterfalls.features[i].properties.NAME + "</h6>" + "<p> Height in meters = " + waterfalls.features[i].properties.HEIGHT_IN_M + "</p>" + "<p> Accessible: " + waterfalls.features[i].properties.OWNERSHIP.toUpperCase() + "</p>" + 
+                "<p> <a href='#' onclick='getDirections({ lat: " + marker.position.lat + ", lng: " + marker.position.lng + " })'> Get Directions </a> </p>";
+
+                const infoWindow = new google.maps.InfoWindow({
+                  content: contentString
+                });
+
+                // Add a click event listener to the marker to show the info window.
+                marker.addListener("click", () => {
+                  // Close any previously opened info window before opening a new one.  
+                  if (currentInfoWindow) {
+                    currentInfoWindow.close();
+                  }
+                  infoWindow.setContent(contentString);
+                  infoWindow.open({
+                    anchor: marker,
+                    shouldFocus: false
+                  });
+                // Store the currently open info window for future reference.  
+                currentInfoWindow = infoWindow;
+              });
+
+            }         
+        }
+
+        /**
+         * Clears all markers from the map.
+         * @param {Array} markers - The array of marker objects to remove from the map.
+         */
+        function markersClear (markers) 
+        { 
+            for (let i=0; i< markers.length; i++)
+            {
+              if (markers[i] && markers[i].setMap) {
+                //https://developers.google.com/maps/documentation/javascript/markers#:~:text=To%20remove%20a%20marker%20from,setMap(null)%3B
+                markers[i].setMap(null);  // Remove marker from map         
+              }
+            }
+            markers = []; // Reset markers array
+        }
+
+        /**
+         * Filters and displays markers on the Google Map based on the selected category.
+         *
+         * @param {string} category - The category of locations to display on the map.
+         */
+        function filterMarkers (category) 
+        {
+            // If the selected category is waterfalls
+            if (category === "waterfalls") {
+              markersClear(markers); // Clear existing markers
+
+              let waterfallsData = waterfalls.features; // Get waterfalls data
+
+              // Loop through each waterfall entry and create a marker
+              for (let i=0; i< waterfallsData.length; i++)
+              {
+                let marker = new google.maps.marker.AdvancedMarkerElement({
+                    map: map,
+                    position: { lat: waterfallsData[i].geometry.coordinates[1], lng: waterfallsData[i].geometry.coordinates[0] },         
+                    title: waterfallsData[i].properties.NAME            
+                  });
+                markers.push(marker);
+
+                // Create the content string for the info window, including name, height, accessible details and direction link.
+                let contentString = "<h6>" + waterfallsData[i].properties.NAME + "</h6>" + "<p> Height in meters = " + waterfallsData[i].properties.HEIGHT_IN_M + "</p>" + "<p> Accessible: " + waterfallsData[i].properties.OWNERSHIP.toUpperCase() + "</p>" + 
+                "<p> <a href='#' onclick='getDirections({ lat: " + marker.position.lat + ", lng: " + marker.position.lng + " })'> Get Directions </a> </p>";
+
+                const infoWindow = new google.maps.InfoWindow({
+                  content: contentString
+                });
+
+                // Add a click event listener to the marker to show the info window.
+                marker.addListener("click", () => {
+                  // Close any previously opened info window before opening a new one.
+                  if (currentInfoWindow) {
+                    currentInfoWindow.close();
+                  }
+                  infoWindow.setContent(contentString);
+                  infoWindow.open({
+                    anchor: marker,
+                    shouldFocus: false
+                  });
+                  // Store the currently open info window for future reference.
+                  currentInfoWindow = infoWindow;
+                });
+              }       
+            }     
+            
+            // If the selected category is parks
+            if (category === "parks") {
+              markersClear(markers);
+
+              let parksData = parks.features;
+
+              for (let i=0; i< parksData.length; i++)
+              {
+                let lat, lng;
+                if (parksData[i].geometry.type === "Polygon") {
+                  lat = parksData[i].geometry.coordinates[0][0][1];
+                  lng = parksData[i].geometry.coordinates[0][0][0];                 
+                }
+                else if (parksData[i].geometry.type === "MultiPolygon") {
+                  lat = parksData[i].geometry.coordinates[0][0][0][1];
+                  lng = parksData[i].geometry.coordinates[0][0][0][0];         
+                }
+
+                let marker = new google.maps.marker.AdvancedMarkerElement({
+                    map: map,
+                    position: { lat: lat, lng: lng },         
+                    title: parksData[i].properties.NAME            
+                  });
+                
+                  markers.push(marker);
+                
+                  // Create the content string for the info window, including name, park class, area in hecta details and direction link.
+                  let contentString = "<h6>" + parksData[i].properties.NAME + "</h6>" + "<p> Park Class: " + parksData[i].properties.PARK_CLASS + "</p>" + "<p> Area in Hectares: " + parksData[i].properties.AREA_HA + "</p>" + "<p> <a href='#' onclick='getDirections({ lat: " + marker.position.lat + ", lng: " + marker.position.lng + " })'> Get Directions </a> </p>";
+
+                const infoWindow = new google.maps.InfoWindow({
+                  content: contentString
+                });
+
+                marker.addListener("click", () => {
+                  if (currentInfoWindow) {
+                    currentInfoWindow.close();
+                  }
+                  infoWindow.setContent(contentString);
+                  infoWindow.open({
+                    anchor: marker,
+                    shouldFocus: false
+                  });
+                  currentInfoWindow = infoWindow;
+                });
+              }       
+            }
+
+            // If the selected category is museum and galleries
+            if (category === "museum_and_galleries") {
+              markersClear(markers);
+
+              let museumData = museum_and_galleries.features;
+
+              for (let i=0; i< museumData.length; i++)
+                {
+                  let marker = new google.maps.marker.AdvancedMarkerElement({
+                      map: map,
+                      position: { lat: museumData[i].geometry.coordinates[1], lng: museumData[i].geometry.coordinates[0] },         
+                      title: museumData[i].properties.NAME            
+                    });
+                    markers.push(marker);
+
+                    // Create the content string for the info window, including address, website and direction link.
+                    let contentString = "<h6>" + museumData[i].properties.NAME + "</h6>" + "<p>Address: " + museumData[i].properties.ADDRESS + "</p>" + "<p>Website: <a href='" + museumData[i].properties.WEBSITE + "' target='_blank'>" + museumData[i].properties.WEBSITE + "</a></p>" + "<p> <a href='#' onclick='getDirections({ lat: " + marker.position.lat + ", lng: " + marker.position.lng + " })'> Get Directions </a> </p>";
+
+                  const infoWindow = new google.maps.InfoWindow({
+                    content: contentString
+                  });
+
+                  marker.addListener("click", () => {
+                    if (currentInfoWindow) {
+                      currentInfoWindow.close();
+                    }
+                    infoWindow.setContent(contentString);
+                    infoWindow.open({
+                      anchor: marker,
+                      shouldFocus: false
+                    });
+                    currentInfoWindow = infoWindow;
+                  });
+                }     
+            }
+
+            // If the selected category is worship places
+            if (category === "worship_places") {
+                markersClear(markers);
+
+                let worshipData = worship_places.features;
+
+                for (let i=0; i< worshipData.length; i++)
+                {
+                  let marker = new google.maps.marker.AdvancedMarkerElement({
+                      map: map,
+                      position: { lat: worshipData[i].geometry.coordinates[1], lng: worshipData[i].geometry.coordinates[0] },         
+                      title: worshipData[i].properties.NAME            
+                    });
+                    markers.push(marker);
+
+                    // Create the content string for the info window, including name, address, denomination details and direction link.
+                    let contentString = "<h6>" + worshipData[i].properties.NAME + "</h6>" + "<p>Address:" + worshipData[i].properties.ADDRESS + "</p>" + "<p>Denomination: " + worshipData[i].properties.DENOMINATION + "</p>" + "<p> <a href='#' onclick='getDirections({ lat: " + marker.position.lat + ", lng: " + marker.position.lng + " })'> Get Directions </a> </p>";
+
+                  const infoWindow = new google.maps.InfoWindow({
+                    content: contentString
+                  });
+
+                  marker.addListener("click", () => {
+                    if (currentInfoWindow) {
+                      currentInfoWindow.close();
+                    }
+                    infoWindow.setContent(contentString);
+                    infoWindow.open({
+                      anchor: marker,
+                      shouldFocus: false
+                    });
+                    currentInfoWindow = infoWindow;
+                  });
+                }  
+              }
+
+            // If the selected category is hospitals
+            if (category === "hospitals") {
+              
+                markersClear(markers);
+
+                let hospitalsData = hospitals.features;
+
+                for (let i=0; i< hospitalsData.length; i++)
+                {
+                  let marker = new google.maps.marker.AdvancedMarkerElement({
+                      map: map,
+                      position: { lat: hospitalsData[i].geometry.coordinates[1], lng: hospitalsData[i].geometry.coordinates[0] },         
+                      title: hospitalsData[i].properties.NAME            
+                    });
+                    markers.push(marker);
+
+                    // Create the content string for the info window, including name, address, community details and direction link.
+                    let contentString = "<h6>" + hospitalsData[i].properties.NAME + "</h6>" + "<p>Address: " + hospitalsData[i].properties.ADDRESS + "</p>" + "<p>Community: " + hospitalsData[i].properties.COMMUNITY + "</p>" + "<p> <a href='#' onclick='getDirections({ lat: " + marker.position.lat + ", lng: " + marker.position.lng + " })'> Get Directions </a> </p>";
+
+                  const infoWindow = new google.maps.InfoWindow({
+                    content: contentString
+                  });
+
+                  marker.addListener("click", () => {
+                    if (currentInfoWindow) {
+                      currentInfoWindow.close();
+                    }
+                    infoWindow.setContent(contentString);
+                    infoWindow.open({
+                      anchor: marker,
+                      shouldFocus: false
+                    });
+                    currentInfoWindow = infoWindow;
+                  });
+                }
+              }      
+        }
+
+        /**
+         * Displays the user's current location on the Google Map.
+         * @param {Object} location - The user's current location.
+         */
+        function showCurentLocation(location) 
+        {
+          // Create an image element for the custom marker icon.
+          const icon_content = document.createElement("img");
+          icon_content.src = "https://maps.google.com/mapfiles/kml/pal3/icon56.png";
+
+          // Create a marker to represent the user's location on the map.
+          userLocation = new google.maps.marker.AdvancedMarkerElement({
+            map: map,
+            position: { lat: location.coords.latitude, lng: location.coords.longitude },
+            title: "Your Location",
+            content: icon_content       // Set custom icon for the marker.
+          });
+
+          let contentString = "<h6>Your Location</h6>";
+
+          const infoWindow = new google.maps.InfoWindow({
+            content: contentString
+          });
+
+          // Add a click event listener to the marker to show the info window.
+          userLocation.addListener("click", () => {
+            // Close any previously opened info window before opening a new one.
+            if (currentInfoWindow) {
+                  currentInfoWindow.close();
+                }
+                infoWindow.setContent(contentString);
+                infoWindow.open({
+                  anchor: userLocation,
+                  shouldFocus: false
+                });
+                // Store the currently open info window for future reference.
+                currentInfoWindow = infoWindow;
+              });
+        }
+
+        /**
+         * Requests the user's geolocation and adds a marker on the map at their position.
+         */
+        function addGeoLocateMarker() 
+        {
+          navigator.geolocation.getCurrentPosition(showCurentLocation);
+        }
+
+        /**
+         * Add a new marker on the Google Map based on user input.
+         * It retrieves address details, geocodes the address, and places a marker with an info window.
+         */
+        function addNewMarker ()
+        {
+          markersClear(markers); // Clear existing markers
+
+          // Create an image element for the custom marker icon.
+          const icon_content = document.createElement("img");
+          icon_content.src = "https://maps.google.com/mapfiles/kml/paddle/ylw-stars.png";
+
+          // Retrieve input values from the HTML form.
+          let address = document.getElementById("address").value;
+          let category = document.getElementById("category").value;
+          let parking = document.getElementById("parking").value;
+          let accessibility = document.getElementById("accessibility").value;
+
+          // Use the Google Maps Geocoder to convert the address into latitude and longitude.
+          geocoder.geocode({ address: address }, (results, status) => {
+            // If geocoding is successful, create and add a new marker to the map.
+            if (status === "OK") {
+              let newMarker = new google.maps.marker.AdvancedMarkerElement({
+                map: map,
+                position: { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() },
+                title: category,
+                content: icon_content   // Set custom icon for the marker.
+              });
+
+              markers.push(newMarker);
+
+              // Create the content string for the info window, including address, parking, accessibility details and direction link.
+              let contentString = "<h6>" + category + "</h6>" + "<p>" + address + "</p>" + "<p> Parking: " + parking + "</p>" + "<p> Accessibility: " + accessibility + "</p>" + 
+              "<p> <a href='#' onclick='getDirections({ lat: " + newMarker.position.lat + ", lng: " + newMarker.position.lng + " })'> Get Directions </a> </p>";
+
+              const infoWindow = new google.maps.InfoWindow({
+                content: contentString
+              });
+
+              // Add a click event listener to the marker to show the info window.
+              newMarker.addListener("click", () => {
+                // Close any previously opened info window before opening a new one.
+                if (currentInfoWindow) {
+                  currentInfoWindow.close();
+                }
+                infoWindow.setContent(contentString);
+                infoWindow.open({
+                  anchor: newMarker,
+                  shouldFocus: false
+                });
+                // Store the currently open info window for future reference.
+                currentInfoWindow = infoWindow;
+              });
+            } 
+            else 
+            {
+              // If the address is invalid, show an alert message.
+              alert("Invalid Address");
+            }
+          });
+        }
+
+        /**
+         * Function to get driving directions from the user's location to a specified destination.
+         * It requires the user's location to be enabled.
+         * 
+         * @param {string} destination - The coordinates of the destination.
+         */
+        function getDirections(destination) {
+            // Check if the user's location is available
+            if (!userLocation) {
+                alert("Please enable geolocation first!");
+                return;
+            }
+
+            // Define the request object for Google Maps Directions API
+            const request = {
+                origin: userLocation.position,  // User's current position
+                destination: destination,       // Destination coordinates
+                travelMode: "DRIVING"           // Travel mode set to driving
+            };
+
+            // Request directions from Google Maps API
+            directionsService.route(request, function (result, status) {
+                if (status === "OK") {
+                    // If request is successful, display the directions on the map
+                    directionsRenderer.setDirections(result);
+                } else {
+                    // If request fails, show an alert message
+                    alert("Error in calculating directions");
+                }
+            });
+        }
+        
+        // Event listeners for filtering map markers by category
+        document.getElementById("waterfalls").addEventListener("click", () => filterMarkers("waterfalls"));
+        document.getElementById("parks").addEventListener("click", () => filterMarkers("parks"));
+        document.getElementById("museum_and_galleries").addEventListener("click", () => filterMarkers("museum_and_galleries"));
+        document.getElementById("worship_places").addEventListener("click", () => filterMarkers("worship_places"));
+        document.getElementById("hospitals").addEventListener("click", () => filterMarkers("hospitals"));
+
+        // Event listener to trigger geolocation and add the user's location marker on the map.
+        document.getElementById("geolocate").addEventListener("click", addGeoLocateMarker);
+
+        // Event listener to add a new marker on the map when the "Add New Marker" button is clicked.
+        document.getElementById("addNewMarker").addEventListener("click", (event) => {
+          event.preventDefault();
+          addNewMarker();
+        });
+    </script>
+</body>
+</html>
